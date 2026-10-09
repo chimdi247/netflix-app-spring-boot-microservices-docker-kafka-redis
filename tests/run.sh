@@ -5,6 +5,9 @@
 #   ./tests/run.sh load -e VU_SCALE=2
 #   ./tests/run.sh soak -e DURATION=2h
 #   ./tests/run.sh all                      # smoke -> load -> pipeline
+
+
+###  clean up   ./tests/cleanup.sh  
 #
 # Everything after the test name is passed to `k6 run` (use -e NAME=value for script settings).
 set -euo pipefail

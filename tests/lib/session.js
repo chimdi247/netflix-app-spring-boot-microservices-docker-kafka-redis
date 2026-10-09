@@ -2,6 +2,8 @@ import { check } from 'k6';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, PERF_PASSWORD, POOL_SIZE, RUN_ID, USER_DOMAIN } from './config.js';
 import { login, register } from './api.js';
 import { ensureSampleMovie } from './pipeline.js';
+import tracing from 'k6/experimental/tracing';
+tracing.instrumentHTTP({ propagator: 'w3c' });
 
 /**
  * Runs once in setup(): an admin token, POOL_SIZE viewers (perf-<run>-<n>@loadtest.local) and one playable movie.

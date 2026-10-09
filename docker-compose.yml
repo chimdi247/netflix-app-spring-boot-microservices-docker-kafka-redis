@@ -33,6 +33,9 @@ x-otel-env: &otel-env
   # OpenTelemetry Java agent (attached in every Dockerfile): traces, metrics and logs go to the collector,
   # which forwards them to Tempo, Prometheus and Loki. W3C trace context is propagated over HTTP and Kafka.
   OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_INSTRUMENTATION_MESSAGING_EXPERIMENTAL_RECEIVE_TELEMETRY_ENABLED: "true"
+  OTEL_TRACES_SAMPLER: parentbased_traceidratio
+  OTEL_TRACES_SAMPLER_ARG: "0.05"
   OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
   OTEL_TRACES_EXPORTER: otlp
   OTEL_METRICS_EXPORTER: otlp

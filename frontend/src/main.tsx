@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import App from "./App";
 import { AuthProvider } from "./lib/auth";
 import "./index.css";
+import './tracing';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, retry: 1, refetchOnWindowFocus: true } },
