@@ -2,6 +2,8 @@ import { check, sleep } from 'k6';
 import { PERF_PASSWORD, THINK_TIME } from './config.js';
 import { fetchSigned, getSignedPlaylist, getStream, getMovie, listMovies, login, moviesByGenre, searchMovies } from './api.js';
 import { pickViewer } from './session.js';
+import tracing from 'k6/experimental/tracing';
+tracing.instrumentHTTP({ propagator: 'w3c' });
 
 const GENRES = ['ACTION', 'COMEDY', 'DRAMA', 'HORROR', 'THRILLER', 'ROMANCE', 'DOCUMENTARY', 'ANIMATION', 'SCI_FI'];
 const WORDS = ['neon', 'night', 'k6', 'static', 'the', 'long', 'sample'];

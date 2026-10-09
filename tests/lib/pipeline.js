@@ -3,6 +3,8 @@ import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
 import { PIPELINE_TIMEOUT_S, SAMPLE_MOVIE_TITLE, SAMPLE_PATH } from './config.js';
 import { createMovie, deleteMovie, getMovie, listMovies, uploadVideo } from './api.js';
+import tracing from 'k6/experimental/tracing';
+tracing.instrumentHTTP({ propagator: 'w3c' });
 
 // the sample clip is read once per VU (init context)
 const SAMPLE = open(SAMPLE_PATH, 'b');

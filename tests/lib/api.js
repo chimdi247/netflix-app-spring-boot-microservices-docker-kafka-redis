@@ -2,6 +2,8 @@ import http from 'k6/http';
 import { API, BASE_URL, S3_FETCH_BASE } from './config.js';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
+import tracing from 'k6/experimental/tracing';
+tracing.instrumentHTTP({ propagator: 'w3c' });
 
 // `name` groups URLs with ids into one metric series; `phase` separates provisioning from the measured traffic.
 function params(name, token, phase, extra) {
