@@ -1,0 +1,80 @@
+# Rules for the Prometheus JMX exporter running inside the Kafka broker.
+# Metric names are defined here (not by a third-party exporter), the Grafana "Kafka" dashboard uses exactly these.
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+whitelistObjectNames:
+  - kafka.server:*
+  - kafka.network:*
+  - kafka.controller:*
+  - kafka.log:*
+  - kafka.coordinator.group:*
+
+rules:
+  # ---- throughput, per topic ------------------------------------------------------------------
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=(MessagesInPerSec|BytesInPerSec|BytesOutPerSec|BytesRejectedPerSec|TotalProduceRequestsPerSec|TotalFetchRequestsPerSec|FailedProduceRequestsPerSec|FailedFetchRequestsPerSec), topic=(.+)><>Count
+    name: kafka_server_brokertopicmetrics_$1_total
+    type: COUNTER
+    labels:
+      topic: "$2"
+
+  # ---- throughput, whole broker ---------------------------------------------------------------
+  - pattern: kafka.server<type=BrokerTopicMetrics, name=(MessagesInPerSec|BytesInPerSec|BytesOutPerSec|BytesRejectedPerSec|TotalProduceRequestsPerSec|TotalFetchRequestsPerSec|FailedProduceRequestsPerSec|FailedFetchRequestsPerSec)><>Count
+    name: kafka_server_brokertopicmetrics_$1_total
+    type: COUNTER
+
+  # ---- replication health ---------------------------------------------------------------------
+  - pattern: kafka.server<type=ReplicaManager, name=(PartitionCount|LeaderCount|UnderReplicatedPartitions|UnderMinIsrPartitionCount|AtMinIsrPartitionCount|OfflineReplicaCount|ReassigningPartitions)><>Value
+    name: kafka_server_replicamanager_$1
+
+  - pattern: kafka.server<type=ReplicaManager, name=(IsrShrinksPerSec|IsrExpandsPerSec)><>Count
+    name: kafka_server_replicamanager_$1_total
+    type: COUNTER
+
+  # ---- controller -----------------------------------------------------------------------------
+  - pattern: kafka.controller<type=KafkaController, name=(ActiveControllerCount|OfflinePartitionsCount|GlobalPartitionCount|GlobalTopicCount|PreferredReplicaImbalanceCount)><>Value
+    name: kafka_controller_kafkacontroller_$1
+
+  # ---- request handling ------------------------------------------------------------------------
+  - pattern: kafka.network<type=RequestMetrics, name=RequestsPerSec, request=(.+), version=(.+)><>Count
+    name: kafka_network_requestmetrics_requests_total
+    type: COUNTER
+    labels:
+      request: "$1"
+      version: "$2"
+
+  - pattern: kafka.network<type=RequestMetrics, name=(TotalTimeMs|RequestQueueTimeMs|LocalTimeMs|RemoteTimeMs|ResponseQueueTimeMs|ResponseSendTimeMs), request=(Produce|FetchConsumer|FetchFollower|Metadata|JoinGroup|SyncGroup|OffsetCommit|Heartbeat)><>(Mean|50thPercentile|95thPercentile|99thPercentile)
+    name: kafka_network_requestmetrics_$1_$3
+    labels:
+      request: "$2"
+
+  - pattern: kafka.network<type=RequestMetrics, name=(ErrorsPerSec), request=(.+), error=(.+)><>Count
+    name: kafka_network_requestmetrics_errors_total
+    type: COUNTER
+    labels:
+      request: "$2"
+      error: "$3"
+
+  - pattern: kafka.server<type=KafkaRequestHandlerPool, name=RequestHandlerAvgIdlePercent><>OneMinuteRate
+    name: kafka_server_requesthandler_avg_idle_percent
+
+  - pattern: kafka.network<type=SocketServer, name=NetworkProcessorAvgIdlePercent><>Value
+    name: kafka_network_socketserver_network_processor_avg_idle_percent
+
+  - pattern: kafka.network<type=RequestChannel, name=(RequestQueueSize|ResponseQueueSize)><>Value
+    name: kafka_network_requestchannel_$1
+
+  # ---- storage --------------------------------------------------------------------------------
+  - pattern: kafka.log<type=Log, name=Size, topic=(.+), partition=(.+)><>Value
+    name: kafka_log_size_bytes
+    labels:
+      topic: "$1"
+      partition: "$2"
+
+  - pattern: kafka.log<type=LogFlushStats, name=LogFlushRateAndTimeMs><>(Count)
+    name: kafka_log_logflushstats_flushes_total
+    type: COUNTER
+
+  # ---- consumer groups (coordinator) ------------------------------------------------------------
+  - pattern: kafka.coordinator.group<type=GroupMetadataManager, name=(NumGroups|NumOffsets)><>Value
+    name: kafka_coordinator_group_$1

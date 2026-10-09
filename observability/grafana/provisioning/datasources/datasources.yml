@@ -1,0 +1,116 @@
+apiVersion: 1
+
+# NOTE: Grafana expands $VAR in provisioning files, so a literal "$" is written "$$".
+
+deleteDatasources:
+  - name: Prometheus
+  - name: Loki
+  - name: Tempo
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s
+      # jump from an exemplar on a graph straight to its trace
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+      # LOG -> TRACE: every log line carries trace_id (OTLP structured metadata). Expanding a log line in
+      # Explore / the dashboard shows a "TraceID" link that opens the full trace with all its spans in Tempo.
+      derivedFields:
+        - name: TraceID
+          datasourceUid: tempo
+          matcherType: label
+          matcherRegex: trace_id
+          url: '$${__value.raw}'
+          urlDisplayLabel: View trace in Tempo
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      httpMethod: GET
+      # TRACE -> LOGS: from a span jump to the log lines of the same service and trace
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: '-1m'
+        spanEndTimeShift: '1m'
+        filterByTraceID: false
+        filterBySpanID: false
+        tags:
+          - key: service.name
+            value: service_name
+        customQuery: true
+        query: '{$${__tags}} | trace_id="$${__span.traceId}"'
+      # TRACE -> METRICS
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        tags:
+          - key: service.name
+            value: service
+        queries:
+          - name: Request rate
+            query: 'sum(rate(traces_spanmetrics_calls_total{$$__tags, span_kind="SPAN_KIND_SERVER"}[$$__rate_interval]))'
+          - name: p95 latency
+            query: 'histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{$$__tags, span_kind="SPAN_KIND_SERVER"}[$$__rate_interval])))'
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false
+      lokiSearch:
+        datasourceUid: loki
+
+  # business KPIs (users, movies, ...) are read through ProxySQL with the read-only account -> they come from the replicas
+  - name: Netflix MySQL
+    uid: netflix-mysql
+    type: mysql
+    access: proxy
+    url: proxysql:6033
+    user: netflix_ro
+    editable: false
+    jsonData:
+      database: content_db
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: netflix_ro_pw
+
+  # ProxySQL's own admin tables (connection pool per backend, query counters ...)
+  - name: ProxySQL Admin
+    uid: proxysql-admin
+    type: mysql
+    access: proxy
+    url: proxysql:6032
+    user: radmin
+    editable: false
+    jsonData:
+      database: stats
+      maxOpenConns: 2
+      maxIdleConns: 1
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: radmin

@@ -1,0 +1,16 @@
+# Every alert goes to the e-mail contact point; critical ones are repeated more often.
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: email-oncall
+    group_by: [grafana_folder, alertname]
+    group_wait: 30s
+    group_interval: 2m
+    repeat_interval: 4h
+    routes:
+      - receiver: email-oncall
+        object_matchers:
+          - ['severity', '=', 'critical']
+        group_wait: 10s
+        repeat_interval: 1h

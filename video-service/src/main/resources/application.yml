@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: video-service
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  servlet:
+    multipart:
+      max-file-size: 2GB
+      max-request-size: 2GB
+
+server:
+  port: 8082
+  shutdown: graceful
+
+# Object storage. Docker Compose points this at MinIO; leave AWS_S3_ENDPOINT empty to use real AWS S3.
+aws:
+  access-key: ${AWS_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
+  secret-key: ${AWS_SECRET_KEY:YOUR_AWS_SECRET_KEY}
+  region: ${AWS_REGION:us-east-1}
+  s3:
+    endpoint: ${AWS_S3_ENDPOINT:}
+    bucket-name: ${AWS_BUCKET_NAME:netflix-streaming-videos}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  pattern:
+    # trace_id / span_id are put into the MDC by the OpenTelemetry Java agent
+    level: "%5p [${spring.application.name},%X{trace_id:-},%X{span_id:-}]"

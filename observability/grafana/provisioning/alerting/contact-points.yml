@@ -1,0 +1,15 @@
+# E-mail contact point. The SMTP server comes from the GF_SMTP_* variables in docker-compose.yml
+# (default: Mailpit at http://localhost:8025). The recipient is ALERT_EMAIL_TO from .env.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: email-oncall
+    receivers:
+      - uid: email-oncall
+        type: email
+        disableResolveMessage: false
+        settings:
+          addresses: ${ALERT_EMAIL_TO}
+          singleEmail: false
+          subject: '[Netflix][{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'

@@ -1,0 +1,55 @@
+spring:
+  application:
+    name: streaming-service
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: streaming-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring:
+          json:
+            trusted:
+              packages: "*"
+            use:
+              type:
+                headers: false
+            value:
+              default:
+                type: com.netflix.streamingservice.event.VideoEncodedEvent
+
+server:
+  port: 8084
+  shutdown: graceful
+
+# Object storage. Docker Compose points this at MinIO; leave AWS_S3_ENDPOINT empty to use real AWS S3.
+aws:
+  access-key: ${AWS_ACCESS_KEY:YOUR_AWS_ACCESS_KEY}
+  secret-key: ${AWS_SECRET_KEY:YOUR_AWS_SECRET_KEY}
+  region: ${AWS_REGION:us-east-1}
+  s3:
+    # used by this service to read playlists
+    endpoint: ${AWS_S3_ENDPOINT:}
+    # used in the pre-signed URLs handed to the browser
+    public-endpoint: ${S3_PUBLIC_ENDPOINT:}
+    bucket-name: ${AWS_BUCKET_NAME:netflix-streaming-videos}
+    # Presigned URL expiry in minutes
+    presigned-url-expiry: ${PRESIGNED_URL_EXPIRY_MINUTES:60}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  pattern:
+    # trace_id / span_id are put into the MDC by the OpenTelemetry Java agent
+    level: "%5p [${spring.application.name},%X{trace_id:-},%X{span_id:-}]"

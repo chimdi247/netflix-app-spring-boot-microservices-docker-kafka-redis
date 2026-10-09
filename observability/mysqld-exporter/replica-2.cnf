@@ -1,0 +1,6 @@
+# credentials of the 'exporter' account created in docker/mysql/init/02-users.sql
+[client]
+user=exporter
+password=exporter_pw
+host=mysql-replica-2
+port=3306

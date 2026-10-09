@@ -1,0 +1,74 @@
+# =============================================================================
+# ProxySQL: connection pooling + read/write splitting + load balancing for MySQL
+#
+#   apps ---> proxysql:6033 ---+--- user "netflix"    -> hostgroup 10 (writer)  -> mysql-primary
+#                              +--- user "netflix_ro" -> hostgroup 20 (readers) -> mysql-replica-1 / mysql-replica-2
+#                                                                                  (round robin by weight; the primary is
+#                                                                                   the reader of last resort)
+#
+# Many application connections are multiplexed over few backend connections (pooling), replicas that fall
+# more than 10 s behind are taken out of rotation, and a dead server is shunned automatically.
+#
+# Read at the FIRST start of the container only (ProxySQL then keeps its own state in its data dir, which
+# is not a volume here, so every `docker compose up` after a removal re-reads this file).
+# Admin interface:  mysql -h127.0.0.1 -P6032 -uradmin -pradmin     (published on localhost:6032)
+# Prometheus metrics: http://proxysql:6070/metrics
+# =============================================================================
+
+datadir="/var/lib/proxysql"
+errorlog="/var/lib/proxysql/proxysql.log"
+
+admin_variables=
+{
+    admin_credentials="admin:admin;radmin:radmin"
+    mysql_ifaces="0.0.0.0:6032"
+    refresh_interval=2000
+    restapi_enabled=true
+    restapi_port=6070
+    prometheus_memory_metrics_interval=61
+}
+
+mysql_variables=
+{
+    threads=4
+    max_connections=2048
+    interfaces="0.0.0.0:6033"
+    server_version="8.0.36"
+    default_charset="utf8mb4"
+    default_query_timeout=36000000
+    poll_timeout=2000
+    stacksize=1048576
+    commands_stats=true
+    sessions_sort=true
+    connect_retries_on_failure=10
+    connect_timeout_server=3000
+    free_connections_pct=10
+    multiplexing=true
+    ping_interval_server_msec=120000
+    ping_timeout_server=500
+
+    # health checks
+    monitor_username="monitor"
+    monitor_password="monitor_pw"
+    monitor_history=600000
+    monitor_connect_interval=10000
+    monitor_ping_interval=10000
+    monitor_read_only_interval=1500
+    monitor_read_only_timeout=500
+    monitor_replication_lag_interval=5000
+    monitor_replication_lag_timeout=1000
+}
+
+mysql_servers =
+(
+    { address="mysql-primary",   port=3306, hostgroup=10, weight=1000, max_connections=200, max_replication_lag=0,  comment="primary (writer)" },
+    { address="mysql-replica-1", port=3306, hostgroup=20, weight=1000, max_connections=200, max_replication_lag=10, comment="replica 1 (reader)" },
+    { address="mysql-replica-2", port=3306, hostgroup=20, weight=1000, max_connections=200, max_replication_lag=10, comment="replica 2 (reader)" },
+    { address="mysql-primary",   port=3306, hostgroup=20, weight=1,    max_connections=50,  max_replication_lag=0,  comment="primary, reader of last resort" }
+)
+
+mysql_users =
+(
+    { username="netflix",    password="netflix_pw",    default_hostgroup=10, active=1, max_connections=1000 },
+    { username="netflix_ro", password="netflix_ro_pw", default_hostgroup=20, active=1, max_connections=1000 }
+)

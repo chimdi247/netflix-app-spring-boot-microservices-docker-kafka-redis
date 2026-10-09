@@ -1,0 +1,21 @@
+# build output (never commit: the original zip shipped target/ folders that contained a real database password)
+target/
+node_modules/
+dist/
+*.class
+*.log
+
+# local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# k6 summaries
+tests/results/*
+!tests/results/.gitignore
+!tests/results/.gitkeep

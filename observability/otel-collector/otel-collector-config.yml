@@ -1,0 +1,86 @@
+# Receives OTLP (traces, metrics, logs) from every Java service (OpenTelemetry Java agent) and fans it out:
+#   traces  -> Tempo
+#   metrics -> Prometheus (scraped from :8889)
+#   logs    -> Loki (native OTLP ingestion; trace_id / span_id arrive as structured metadata)
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+
+  batch:
+    timeout: 2s
+
+  # Docker health checks and Prometheus probes hit /actuator/health every few seconds; keep them out of Tempo
+  filter/drop_health:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["url.path"] == "/actuator/health"'
+        - 'attributes["http.target"] == "/actuator/health"'
+        - 'attributes["url.path"] == "/healthz"'
+
+  # Resource attributes become labels on EVERY metric (resource_to_telemetry_conversion below).
+  # Drop the ones that are unique per process or very long, keep service.name / namespace / environment.
+  resource/trim_metrics:
+    attributes:
+      - { key: process.command_line, action: delete }
+      - { key: process.command_args, action: delete }
+      - { key: process.executable.path, action: delete }
+      - { key: process.pid, action: delete }
+      - { key: process.owner, action: delete }
+      - { key: process.runtime.description, action: delete }
+      - { key: process.runtime.name, action: delete }
+      - { key: process.runtime.version, action: delete }
+      - { key: os.description, action: delete }
+      - { key: os.type, action: delete }
+      - { key: host.arch, action: delete }
+      - { key: container.id, action: delete }
+      - { key: service.instance.id, action: delete }
+      - { key: telemetry.sdk.language, action: delete }
+      - { key: telemetry.sdk.name, action: delete }
+      - { key: telemetry.sdk.version, action: delete }
+      - { key: telemetry.distro.name, action: delete }
+      - { key: telemetry.distro.version, action: delete }
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/drop_health, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource/trim_metrics, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/loki]
