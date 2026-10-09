@@ -281,7 +281,7 @@ services:
 
   minio-init:
     # one-shot: creates the private bucket
-    image: pgsty/mc:latest
+    image: amazon/aws-cli:latest
     container_name: minio-init
     restart: "no"
     entrypoint: ["/bin/sh", "/create-bucket.sh"]
